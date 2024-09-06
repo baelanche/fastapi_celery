@@ -1,0 +1,46 @@
+services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  fastapi:
+    build:
+      context: ./application
+      dockerfile: Dockerfile
+    container_name: fastapi
+    command: ../start-reload.sh
+    volumes:
+      - ./application:/app
+    ports:
+      - 8000:80
+    depends_on:
+      - redis
+
+  celery:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: celery
+    command: celery -A app.main.celery_app worker --loglevel=info
+    volumes:
+      - ./worker:/app
+    depends_on:
+      - redis
+      - fastapi
+
+  flower:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: flower
+    command: celery -A app.main.celery_app flower --port=5555
+    volumes:
+      - ./worker:/app
+    ports:
+      - 5555:5555
+    depends_on:
+      - redis
+      - fastapi
+      - celery
